@@ -1,0 +1,57 @@
+version: "3.7"
+
+services:
+  traefik:
+    image: traefik:v2.2
+    command:
+      - --api=true # enable the management api
+      - --api.dashboard=true # enable the monitoring dashboard
+      - --api.insecure=true # allow insecure access to the dashboard
+      - --providers.docker=true # use docker
+      - --providers.docker.swarmMode=true # in swarm mode
+      - --providers.docker.exposedbydefault=false # but don't pick up services automatically
+      - --providers.docker.network=traefik-network
+      - --entrypoints.web.address=:80 # define `web` entry point listening at port 80
+      - --entrypoints.web-secured.address=:443
+      - --certificatesresolvers.mytlschallenge.acme.tlschallenge=false # <== Enable TLS-ALPN-01 to generate and renew ACME certs
+      - --certificatesresolvers.mytlschallenge.acme.email=admin@dgital.pro # <== Setting email for certs
+      - --certificatesresolvers.mytlschallenge.acme.storage=/letsencrypt/acme.json # <== Defining acme file to store cert 
+      - --certificatesresolvers.mytlschallenge.acme.httpChallenge.entryPoint=web
+      - --log.level=DEBUG
+      - --log.filePath=/logs/traefik.log
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      # must mount the docker socket so that traefik can listen to changes
+      - ./letsencrypt:/letsencrypt # <== Volume for certs (TLS)
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config/:/etc/traefik/
+      - ./logs/:/logs/
+    deploy:
+      # this basically says that only deploy 1 per node in every manager node
+      # and reserve 128MB of ram to it, also limit the memory to 256MB
+      placement:
+        constraints:
+          - "node.role == manager"
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik-network"
+        - "traefik.constraint-label=traefik-network"
+        - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+        - "traefik.http.routers.traefik-http.rule=Host(`traefik.dgital.pro`)"
+        - "traefik.http.routers.traefik-http.entrypoints=web"
+        - "traefik.http.routers.traefik-http.middlewares=https-redirect"
+        - "traefik.http.routers.traefik.rule=Host(`traefik.dgital.pro`)"
+        - "traefik.http.routers.traefik.entrypoints=web-secured"
+        - "traefik.http.routers.traefik.tls=true"
+        - "traefik.http.routers.traefik.tls.certresolver=mytlschallenge"
+        - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+
+    networks:
+      - traefik-network
+
+
+networks:
+  traefik-network:
+    external: true

@@ -1,0 +1,21 @@
+version: "3.7"
+
+services:
+  hello:
+    image: jwilder/whoami:latest
+    networks:
+      - traefik-network
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.services.whoami.loadbalancer.server.port=8000"
+        - "traefik.http.routers.whoami.rule=Host(`simaxi.com`)"
+        - "traefik.http.routers.whoami.entrypoints=web-secured"
+        - "traefik.http.routers.whoami.tls.certresolver=mytlschallenge"
+      placement:
+        constraints:
+          - "node.role == manager"
+networks:
+  traefik-network:
+    external: true

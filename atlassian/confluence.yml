@@ -1,0 +1,48 @@
+version: '3'
+
+services:
+  confluence:
+    image: atlassian/confluence-server:6.11
+#    restart: always
+    ports:
+      - 8090
+    volumes:
+      - ./confluence/:/var/atlassian/application-data/confluence
+    networks:
+      - default
+      - traefik-network
+    environment:
+      - CATALINA_CONNECTOR_PROXYNAME=wiki.dgital.pro
+      - CATALINA_CONNECTOR_PROXYPORT=443
+      - CATALINA_CONNECTOR_SCHEME=https
+      - CATALINA_CONNECTOR_SECURE=true
+    deploy:
+      # this basically says that only deploy 1 per node in every manager node
+      # and reserve 128MB of ram to it, also limit the memory to 256MB
+      placement:
+        constraints:
+          - "node.role == manager"
+
+  postgres:
+    image: postgres:9.6
+    restart: always
+    expose:
+       - 5432
+    volumes:
+      - ./pgdata/:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=confluence
+      - POSTGRES_DB=confluence
+      - POSTGRES_PASSWORD=123456789
+    networks:
+      - default
+    deploy:
+      # this basically says that only deploy 1 per node in every manager node
+      # and reserve 128MB of ram to it, also limit the memory to 256MB
+      placement:
+        constraints:
+          - "node.role == manager"
+
+networks:
+  traefik-network:
+    external: true

@@ -1,0 +1,287 @@
+version: '3.4'
+services:
+  redis:
+    image: redis:6.2.6
+    command:
+      - --loglevel warning
+    volumes:
+      - ./redis-data:/var/lib/redis:Z
+    networks:
+      - gitlab-network
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  postgresql:
+    image: sameersbn/postgresql:14-20230628
+    volumes:
+      - ./postgresql-data:/var/lib/postgresql:Z
+    environment:
+      - DB_USER=gitlab
+      - DB_PASS=Derw45sh84
+      - DB_NAME=gitlabhq_production
+      - DB_EXTENSION=pg_trgm,btree_gist
+    networks:
+      - gitlab-network
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  registry:
+    image: registry:2
+    depends_on:
+      - gitlab
+    networks:
+      - gitlab-network
+      - traefik-network 
+    volumes:
+      - ./registry-data:/registry
+      - ./registry-certs:/certs
+    environment:
+      - REGISTRY_LOG_LEVEL=info
+      - REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry
+      - REGISTRY_AUTH_TOKEN_REALM=https://gitlab.dgital.pro/jwt/auth
+      - REGISTRY_AUTH_TOKEN_SERVICE=container_registry
+      - REGISTRY_AUTH_TOKEN_ISSUER=gitlab-issuer
+      - REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE=/certs/registry.crt
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-network
+        - traefik.constraint-label=traefik-network
+        - traefik.http.routers.gitlab-registry-http.rule=Host(`registry.dgital.pro`)
+        - traefik.http.routers.gitlab-registry-http.entrypoints=web
+        - traefik.http.routers.gitlab-registry-http.middlewares=https-redirect
+        - traefik.http.routers.gitlab-registry-https.rule=Host(`registry.dgital.pro`)
+        - traefik.http.routers.gitlab-registry-https.entrypoints=web-secured
+        - traefik.http.routers.gitlab-registry-https.tls=true
+        - traefik.http.routers.gitlab-registry-https.tls.certresolver=mytlschallenge
+        - traefik.http.services.gitlab-registry.loadbalancer.server.port=5000
+    networks:
+      # To communicate with other services in this stack
+      - gitlab-network
+      # To be available for the public Traefik
+      - traefik-network
+
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+#    container_name: "gitlab"
+    hostname: gitlab.dgital.pro
+    network_mode: host
+#    restart: unless-stopped
+    healthcheck:
+      disable: true
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'https://gitlab.dgital.pro'
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
+        nginx['proxy_set_headers'] = {
+          "X-Forwarded-Proto" => "https",
+          "X-Forwarded-Ssl" => "on"
+        }
+        gitlab_rails['gitlab_shell_ssh_port'] = 22
+        gitlab_rails['smtp_enable'] = false
+
+    ports:
+#      - 1080:80
+      - "22:22"
+    volumes:
+      - ./gitlab-config:/etc/gitlab:rw
+      - ./gitlab-data:/var/opt/gitlab:rw
+      - ./gitlab-log:/var/log/gitlab:rw
+    deploy: 
+      labels:
+        - traefik.enable=true
+        - "traefik.http.services.gilab.loadbalancer.server.port=80"
+        - "traefik.http.routers.gitlab.rule=Host(`gitlab.dgital.pro`)"
+        - "traefik.http.routers.gitlab.entrypoints=web-secured"
+        - "traefik.http.routers.gitlab.tls.certresolver=mytlschallenge"
+    networks:
+      - traefik-network
+
+
+#  gitlab:
+#    image: gitlab/gitlab-ee:latest
+#    depends_on:
+#      - redis
+#      - postgresql
+#    ports:
+#      - 1022:22
+#      - 8080:80
+#    volumes:
+#      - ./gitlab-data:/home/git/data
+#      - ./gitlab-logs:/var/log/gitlab
+#      - ./certs:/certs
+    # healthcheck:
+    #   test: ["CMD", "/usr/local/sbin/healthcheck"]
+    #   interval: 5m
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 5m
+#    networks:
+      # To communicate with other services in this stack
+#      - gitlab-network
+      # To be available for the public Traefik
+#      - traefik-network
+#    external_links:
+#      - "registry:registry.dgital.pro"
+#    environment:
+#      - DEBUG=false
+#      - GITLAB_REGISTRY_ENABLED=true
+#      - GITLAB_REGISTRY_HOST=registry.dgital.pro
+#      - GITLAB_REGISTRY_PORT=443
+#      - GITLAB_REGISTRY_API_URL=http://registry:5000
+#      - GITLAB_REGISTRY_KEY_PATH=/certs/registry.key
+#      - GITLAB_REGISTRY_ISSUER=gitlab-issuer
+#      - GITLAB_REGISTRY_GENERATE_INTERNAL_CERTIFICATES=true
+
+#      - GITLAB_SIGNUP_ENABLED=false
+
+#      - DB_ADAPTER=postgresql
+#      - DB_HOST=postgresql
+#      - DB_PORT=5432
+#      - DB_USER=gitlab
+#      - DB_PASS=Derw45sh84
+#      - DB_NAME=gitlabhq_production
+
+#      - REDIS_HOST=redis
+#      - REDIS_PORT=6379
+
+#      - TZ=Europe/Moscow
+#      - GITLAB_TIMEZONE=Moscow
+
+#      - GITLAB_HTTPS=true
+#      - SSL_SELF_SIGNED=false
+
+#      - GITLAB_HOST=gitlab.dgital.pro
+#      - GITLAB_PORT=443
+#      - GITLAB_SSH_PORT=22
+#      - GITLAB_RELATIVE_URL_ROOT=
+#      - GITLAB_SECRETS_DB_KEY_BASE=b5e72d456d9a5d21ed97755ff32e1f45883fc462d456c70964a85994d2488000
+#      - GITLAB_SECRETS_SECRET_KEY_BASE=539dcdcc74e91e63b4adb6d13e41a5727c4902c536ebe2778c3e6db868f78d4b
+#      - GITLAB_SECRETS_OTP_KEY_BASE=469d55b4c27206d9c1450d1c6a9fbacba774a585224c316e172198a1527d7415
+
+#      - GITLAB_ROOT_PASSWORD=Derw45sh84
+#      - GITLAB_ROOT_EMAIL=admin@dgital.pro
+
+#      - GITLAB_NOTIFY_ON_BROKEN_BUILDS=true
+#      - GITLAB_NOTIFY_PUSHER=false
+
+#      - GITLAB_EMAIL=notifications@example.com
+#      - GITLAB_EMAIL_REPLY_TO=noreply@example.com
+#      - GITLAB_INCOMING_EMAIL_ADDRESS=reply@example.com
+
+#      - GITLAB_BACKUP_SCHEDULE=daily
+#      - GITLAB_BACKUP_TIME=01:00
+
+#      - SMTP_ENABLED=false
+#      - SMTP_DOMAIN=www.example.com
+#      - SMTP_HOST=smtp.gmail.com
+#      - SMTP_PORT=587
+#    - SMTP_USER=mailer@example.com
+#    - SMTP_PASS=password
+#    - SMTP_STARTTLS=true
+#    - SMTP_AUTHENTICATION=login
+
+#    - IMAP_ENABLED=false
+#    - IMAP_HOST=imap.gmail.com
+#    - IMAP_PORT=993
+#    - IMAP_USER=mailer@example.com
+#    - IMAP_PASS=password
+#    - IMAP_SSL=true
+#    - IMAP_STARTTLS=false
+
+#    - OAUTH_ENABLED=false
+#    - OAUTH_AUTO_SIGN_IN_WITH_PROVIDER=
+#    - OAUTH_ALLOW_SSO=
+#    - OAUTH_BLOCK_AUTO_CREATED_USERS=true
+#    - OAUTH_AUTO_LINK_LDAP_USER=false
+#    - OAUTH_AUTO_LINK_SAML_USER=false
+#    - OAUTH_EXTERNAL_PROVIDERS=
+
+#    - OAUTH_CAS3_LABEL=cas3
+#    - OAUTH_CAS3_SERVER=
+#    - OAUTH_CAS3_DISABLE_SSL_VERIFICATION=false
+#    - OAUTH_CAS3_LOGIN_URL=/cas/login
+#    - OAUTH_CAS3_VALIDATE_URL=/cas/p3/serviceValidate
+#    - OAUTH_CAS3_LOGOUT_URL=/cas/logout
+
+#    - OAUTH_GOOGLE_API_KEY=
+#    - OAUTH_GOOGLE_APP_SECRET=
+#    - OAUTH_GOOGLE_RESTRICT_DOMAIN=
+
+#    - OAUTH_FACEBOOK_API_KEY=
+#    - OAUTH_FACEBOOK_APP_SECRET=
+
+#    - OAUTH_TWITTER_API_KEY=
+#    - OAUTH_TWITTER_APP_SECRET=
+
+#    - OAUTH_GITHUB_API_KEY=
+#    - OAUTH_GITHUB_APP_SECRET=
+#    - OAUTH_GITHUB_URL=
+#    - OAUTH_GITHUB_VERIFY_SSL=
+
+#    - OAUTH_GITLAB_API_KEY=
+#    - OAUTH_GITLAB_APP_SECRET=
+
+#    - OAUTH_BITBUCKET_API_KEY=
+#    - OAUTH_BITBUCKET_APP_SECRET=
+#    - OAUTH_BITBUCKET_URL=
+
+#    - OAUTH_SAML_ASSERTION_CONSUMER_SERVICE_URL=
+#    - OAUTH_SAML_IDP_CERT_FINGERPRINT=
+#    - OAUTH_SAML_IDP_SSO_TARGET_URL=
+#    - OAUTH_SAML_ISSUER=
+#    - OAUTH_SAML_LABEL="Our SAML Provider"
+#    - OAUTH_SAML_NAME_IDENTIFIER_FORMAT=urn:oasis:names:tc:SAML:2.0:nameid-format:transient
+#    - OAUTH_SAML_GROUPS_ATTRIBUTE=
+#    - OAUTH_SAML_EXTERNAL_GROUPS=
+#    - OAUTH_SAML_ATTRIBUTE_STATEMENTS_EMAIL=
+#    - OAUTH_SAML_ATTRIBUTE_STATEMENTS_NAME=
+#    - OAUTH_SAML_ATTRIBUTE_STATEMENTS_USERNAME=
+#    - OAUTH_SAML_ATTRIBUTE_STATEMENTS_FIRST_NAME=
+#    - OAUTH_SAML_ATTRIBUTE_STATEMENTS_LAST_NAME=
+
+#    - OAUTH_CROWD_SERVER_URL=
+#    - OAUTH_CROWD_APP_NAME=
+#    - OAUTH_CROWD_APP_PASSWORD=
+
+#    - OAUTH_AUTH0_CLIENT_ID=
+#    - OAUTH_AUTH0_CLIENT_SECRET=
+#    - OAUTH_AUTH0_DOMAIN=
+#    - OAUTH_AUTH0_SCOPE=
+
+#    - OAUTH_AZURE_API_KEY=
+#    - OAUTH_AZURE_API_SECRET=
+#    - OAUTH_AZURE_TENANT_ID=
+
+#      - RACK_ATTACK_ENABLED=false
+#    deploy:
+#      placement:
+#        constraints:
+#          - node.role == manager
+#      labels:
+#        - traefik.enable=true
+#        - traefik.docker.network=traefik-network
+#        - traefik.constraint-label=traefik-network
+#        - traefik.http.routers.gitlab-gitlab-http.rule=Host(`gitlab.dgital.pro`)
+#        - traefik.http.routers.gitlab-gitlab-http.entrypoints=web
+#        - traefik.http.routers.gitlab-gitlab-http.middlewares=https-redirect
+#        - traefik.http.routers.gitlab-gitlab-https.rule=Host(`gitlab.dgital.pro`)
+#        - traefik.http.routers.gitlab-gitlab-https.entrypoints=web-secured
+#        - traefik.http.routers.gitlab-gitlab-https.tls=true
+#        - traefik.http.routers.gitlab-gitlab-https.tls.certresolver=mytlschallenge
+#        - traefik.http.services.gitlab-gitlab.loadbalancer.server.port=8080
+
+networks:
+  gitlab-network:
+    attachable: true
+  traefik-network:
+    external: true

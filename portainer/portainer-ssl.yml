@@ -1,0 +1,55 @@
+version: '3.3'
+
+services:
+  agent:
+    image: portainer/agent:2.19.2
+    environment:
+      AGENT_CLUSTER_ADDR: tasks.agent
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    networks:
+      - agent-network
+    deploy:
+      # this basically says that only deploy 1 per node in every manager node
+      # and reserve 128MB of ram to it, also limit the memory to 256MB
+      placement:
+        constraints:
+          - "node.role == manager"
+
+  portainer:
+    image: portainer/portainer-ce:2.19.2
+    command: -H tcp://tasks.agent:9001 --tlsskipverify
+    network_mode: host
+    volumes:
+      - portainer-data:/data
+    networks:
+      - agent-network
+      - traefik-network
+    deploy:
+      # this basically says that only deploy 1 per node in every manager node
+      # and reserve 128MB of ram to it, also limit the memory to 256MB
+      placement:
+        constraints:
+          - "node.role == manager"
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-network
+        - traefik.constraint-label=traefik-network
+        - traefik.http.routers.portainer-http.rule=Host(`portainer.dgital.pro`)
+        - traefik.http.routers.portainer-http.entrypoints=web
+        - traefik.http.routers.portainer-http.middlewares=https-redirect
+        - traefik.http.routers.portainer-https.rule=Host(`portainer.dgital.pro`)
+        - traefik.http.routers.portainer-https.entrypoints=web-secured
+        - traefik.http.routers.portainer-https.tls=true
+        - traefik.http.routers.portainer-https.tls.certresolver=mytlschallenge
+        - traefik.http.services.portainer.loadbalancer.server.port=9000
+
+networks:
+  agent-network:
+    attachable: true
+  traefik-network:
+    external: true
+
+volumes:
+  portainer-data:
