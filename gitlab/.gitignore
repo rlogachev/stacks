@@ -1,0 +1,7 @@
+gitlab-data
+gitlab-log
+gitlab-config
+postgresql-data
+redis-data
+registry-data
+registry-certs

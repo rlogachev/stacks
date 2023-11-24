@@ -42,11 +42,14 @@ services:
     environment:
       - REGISTRY_LOG_LEVEL=info
       - REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry
-      - REGISTRY_AUTH_TOKEN_REALM=https://gitlab.dgital.pro/jwt/auth
-      - REGISTRY_AUTH_TOKEN_SERVICE=container_registry
-      - REGISTRY_AUTH_TOKEN_ISSUER=gitlab-issuer
-      - REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE=/certs/registry.crt
+#      - REGISTRY_AUTH_TOKEN_REALM=https://gitlab.dgital.pro/jwt/auth
+#      - REGISTRY_AUTH_TOKEN_SERVICE=container_registry
+#      - REGISTRY_AUTH_TOKEN_ISSUER=gitlab-issuer
+#      - REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE=/certs/registry.crt
       - REGISTRY_STORAGE_DELETE_ENABLED=true
+      - REGISTRY_AUTH= htpasswd
+      - REGISTRY_AUTH_HTPASSWD_REALM=Registry
+      - REGISTRY_AUTH_HTPASSWD_PATH=/registry/auth/registry.password
     deploy:
       placement:
         constraints:
@@ -73,22 +76,33 @@ services:
     image: gitlab/gitlab-ce:latest
 #    container_name: "gitlab"
     hostname: gitlab.dgital.pro
-    network_mode: host
+#    network_mode: host
 #    restart: unless-stopped
     healthcheck:
       disable: true
     environment:
-      GITLAB_OMNIBUS_CONFIG: |
-        external_url 'https://gitlab.dgital.pro'
-        nginx['listen_port'] = 80
-        nginx['listen_https'] = false
-        nginx['proxy_set_headers'] = {
-          "X-Forwarded-Proto" => "https",
-          "X-Forwarded-Ssl" => "on"
-        }
-        gitlab_rails['gitlab_shell_ssh_port'] = 22
-        gitlab_rails['smtp_enable'] = false
-
+      - GITLAB_OMNIBUS_CONFIG="from_file('/omnibus_config.rb')"
+      - DEBUG=false
+#      - GITLAB_REGISTRY_ENABLED=true
+#      - GITLAB_REGISTRY_HOST=registry.dgital.pro
+#      - GITLAB_REGISTRY_PORT=443
+#      - GITLAB_REGISTRY_API_URL=http://registry:5000
+#      - GITLAB_REGISTRY_KEY_PATH=/certs/registry.key
+#      - GITLAB_REGISTRY_ISSUER=gitlab-issuer
+#      - GITLAB_REGISTRY_GENERATE_INTERNAL_CERTIFICATES=true
+#      - GITLAB_SIGNUP_ENABLED=false
+#      - DB_ADAPTER=postgresql
+#      - DB_HOST=postgresql
+#      - DB_PORT=5432
+#      - DB_USER=gitlab
+#      - DB_PASS=Derw45sh84
+#      - DB_NAME=gitlabhq_production
+#      - REDIS_HOST=redis
+#      - REDIS_PORT=6379
+#      - TZ=Europe/Moscow
+#      - GITLAB_TIMEZONE=Moscow
+#      - GITLAB_HTTPS=true
+#      - SSL_SELF_SIGNED=false
     ports:
 #      - 1080:80
       - "22:22"
@@ -96,13 +110,14 @@ services:
       - ./gitlab-config:/etc/gitlab:rw
       - ./gitlab-data:/var/opt/gitlab:rw
       - ./gitlab-log:/var/log/gitlab:rw
-    deploy: 
+      - ./omnibus_config.rb:/omnibus_config.rb
+    deploy:
       labels:
         - traefik.enable=true
-        - "traefik.http.services.gilab.loadbalancer.server.port=80"
-        - "traefik.http.routers.gitlab.rule=Host(`gitlab.dgital.pro`)"
-        - "traefik.http.routers.gitlab.entrypoints=web-secured"
-        - "traefik.http.routers.gitlab.tls.certresolver=mytlschallenge"
+        - traefik.http.services.gilab.loadbalancer.server.port=80
+        - traefik.http.routers.gitlab.rule=Host(`gitlab.dgital.pro`)
+        - traefik.http.routers.gitlab.entrypoints=web-secured
+        - traefik.http.routers.gitlab.tls.certresolver=mytlschallenge
     networks:
       - traefik-network
 
