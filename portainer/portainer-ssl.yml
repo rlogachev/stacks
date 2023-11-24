@@ -13,16 +13,14 @@ services:
     deploy:
       # this basically says that only deploy 1 per node in every manager node
       # and reserve 128MB of ram to it, also limit the memory to 256MB
-      placement:
-        constraints:
-          - "node.role == manager"
+      mode: global
 
   portainer:
     image: portainer/portainer-ce:2.19.2
     command: -H tcp://tasks.agent:9001 --tlsskipverify
     network_mode: host
     volumes:
-      - portainer-data:/data
+      - ./portainer-data:/data
     networks:
       - agent-network
       - traefik-network
@@ -51,5 +49,5 @@ networks:
   traefik-network:
     external: true
 
-volumes:
-  portainer-data:
+#volumes:
+#  portainer-data:
