@@ -1,0 +1,52 @@
+version: '3.3'
+
+services:
+  postgres:
+    image: postgres:10
+    volumes:
+      - ./storage/postgresql-data:/var/lib/postgresql/data
+    networks:
+      - traefik-network
+    environment:
+      POSTGRES_PASSWORD: "Derw45sh84"
+      POSTGRES_DB: "redmine"
+      PGDATA: "/var/lib/postgresql/data"
+    restart: always
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - "node.role == manager"
+  redmine:
+    build:
+      context: .
+    image: redmine:custom
+#    ports:
+#      - 80:3000
+    networks:
+      - traefik-network
+    volumes:
+      - ./storage/docker_redmine-plugins:/usr/src/redmine/plugins
+      - ./storage/docker_redmine-themes:/usr/src/redmine/public/themes
+      - ./storage/docker_redmine-data:/usr/src/redmine/files
+    environment:
+      REDMINE_DB_POSTGRES: "postgres"
+      REDMINE_DB_USERNAME: "postgres"
+      REDMINE_DB_PASSWORD: "Derw45sh84"
+      REDMINE_DB_DATABASE: "redmine"
+      REDMINE_SECRET_KEY_BASE: "…"
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.services.memos.loadbalancer.server.port=3000"
+        - "traefik.http.routers.memos.rule=Host(`redmine.dgital.pro`)"
+        - "traefik.http.routers.memos.entrypoints=web-secured"
+        - "traefik.http.routers.memos.tls.certresolver=mytlschallenge"
+      placement:
+        constraints:
+          - "node.role == manager"
+
+networks:
+  traefik-network:
+    external: true
