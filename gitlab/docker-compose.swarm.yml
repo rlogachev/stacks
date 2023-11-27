@@ -7,7 +7,8 @@ services:
     volumes:
       - ./redis-data:/var/lib/redis:Z
     networks:
-      - gitlab-network
+#      - gitlab-network
+      - traefik-network
     deploy:
       placement:
         constraints:
@@ -23,7 +24,8 @@ services:
       - DB_NAME=gitlabhq_production
       - DB_EXTENSION=pg_trgm,btree_gist
     networks:
-      - gitlab-network
+#      - gitlab-network
+      - traefik-network
     deploy:
       placement:
         constraints:
@@ -91,26 +93,27 @@ services:
 #      - GITLAB_REGISTRY_ISSUER=gitlab-issuer
 #      - GITLAB_REGISTRY_GENERATE_INTERNAL_CERTIFICATES=true
 #      - GITLAB_SIGNUP_ENABLED=false
-#      - DB_ADAPTER=postgresql
-#      - DB_HOST=postgresql
-#      - DB_PORT=5432
-#      - DB_USER=gitlab
-#      - DB_PASS=Derw45sh84
-#      - DB_NAME=gitlabhq_production
-#      - REDIS_HOST=redis
-#      - REDIS_PORT=6379
-#      - TZ=Europe/Moscow
-#      - GITLAB_TIMEZONE=Moscow
+      - DB_ADAPTER=postgresql
+      - DB_HOST=postgresql
+      - DB_PORT=5432
+      - DB_USER=gitlab
+      - DB_PASS=Derw45sh84
+      - DB_NAME=gitlabhq_production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TZ=Europe/Moscow
+      - GITLAB_TIMEZONE=Moscow
 #      - GITLAB_HTTPS=true
 #      - SSL_SELF_SIGNED=false
-    ports:
+#    ports:
 #      - 1080:80
-      - "22:22"
+#      - "22:22"
     volumes:
       - ./gitlab-config:/etc/gitlab:rw
       - ./gitlab-data:/var/opt/gitlab:rw
       - ./gitlab-log:/var/log/gitlab:rw
       - ./omnibus_config.rb:/omnibus_config.rb
+      - /var/run/docker.sock:/var/run/docker.sock
     deploy:
       labels:
         - traefik.enable=true
@@ -118,6 +121,11 @@ services:
         - traefik.http.routers.gitlab.rule=Host(`gitlab.dgital.pro`)
         - traefik.http.routers.gitlab.entrypoints=web-secured
         - traefik.http.routers.gitlab.tls.certresolver=mytlschallenge
+
+        - traefik.tcp.routers.gitlab-ssh.rule=HostSNI(`*`)
+        - traefik.tcp.routers.gitlab-ssh.entrypoints=ssh-gitlab
+        - traefik.tcp.routers.gitlab-ssh.service=gitlab-ssh-service
+        - traefik.tcp.services.gitlab-ssh-service.loadbalancer.server.port=22
     networks:
       - traefik-network
 

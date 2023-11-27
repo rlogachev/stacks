@@ -39,10 +39,10 @@ services:
       replicas: 1
       labels:
         - "traefik.enable=true"
-        - "traefik.http.services.memos.loadbalancer.server.port=3000"
-        - "traefik.http.routers.memos.rule=Host(`redmine.dgital.pro`)"
-        - "traefik.http.routers.memos.entrypoints=web-secured"
-        - "traefik.http.routers.memos.tls.certresolver=mytlschallenge"
+        - "traefik.http.services.redmine.loadbalancer.server.port=3000"
+        - "traefik.http.routers.redmine.rule=Host(`redmine.dgital.pro`)"
+        - "traefik.http.routers.redmine.entrypoints=web-secured"
+        - "traefik.http.routers.redmine.tls.certresolver=mytlschallenge"
       placement:
         constraints:
           - "node.role == manager"

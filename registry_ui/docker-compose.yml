@@ -1,0 +1,30 @@
+version: "3"
+services:
+  registry-ui:
+    image: jc21/registry-ui
+#    ports:
+#      - 80:80
+    environment:
+      - REGISTRY_HOST=registry.dgital.pro
+      - REGISTRY_SSL=true
+      - REGISTRY_DOMAIN=registy.dgital.pro
+      - REGISTRY_STORAGE_DELETE_ENABLED=false
+      - REGISTRY_USER=ilogachev
+      - REGISTRY_PASS=1234qwerasdF
+#    restart: on-failure
+    networks:
+      - traefik-network
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.services.registy-ui.loadbalancer.server.port=80"
+        - "traefik.http.routers.registry-ui.rule=Host(`registry-ui.dgital.pro`)"
+        - "traefik.http.routers.registry-ui.entrypoints=web-secured"
+        - "traefik.http.routers.registry-ui.tls.certresolver=mytlschallenge"
+      placement:
+        constraints:
+          - "node.role == manager"
+networks:
+  traefik-network:
+    external: true

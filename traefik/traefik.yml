@@ -13,6 +13,7 @@ services:
       - --providers.docker.network=traefik-network
       - --entrypoints.web.address=:80 # define `web` entry point listening at port 80
       - --entrypoints.web-secured.address=:443
+      - --entrypoints.ssh-gitlab.address=:22
       - --certificatesresolvers.mytlschallenge.acme.tlschallenge=false # <== Enable TLS-ALPN-01 to generate and renew ACME certs
       - --certificatesresolvers.mytlschallenge.acme.email=admin@dgital.pro # <== Setting email for certs
       - --certificatesresolvers.mytlschallenge.acme.storage=/letsencrypt/acme.json # <== Defining acme file to store cert 
@@ -22,6 +23,7 @@ services:
     ports:
       - 80:80
       - 443:443
+      - 22:22
     volumes:
       # must mount the docker socket so that traefik can listen to changes
       - ./letsencrypt:/letsencrypt # <== Volume for certs (TLS)
