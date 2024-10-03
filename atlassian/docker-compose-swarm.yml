@@ -4,15 +4,14 @@ services:
   confluence:
     image: atlassian/confluence-server:6.11
 #    restart: always
-    ports:
-      - 8090
+#    ports:
+#      - 8090
     volumes:
       - ./confluence/:/var/atlassian/application-data/confluence
     networks:
-      - default
       - traefik-network
     environment:
-      - CATALINA_CONNECTOR_PROXYNAME=wiki.dgital.pro
+      - CATALINA_CONNECTOR_PROXYNAME=confluence.dgital.pro
       - CATALINA_CONNECTOR_PROXYPORT=443
       - CATALINA_CONNECTOR_SCHEME=https
       - CATALINA_CONNECTOR_SECURE=true
@@ -22,12 +21,19 @@ services:
       placement:
         constraints:
           - "node.role == manager"
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-network
+        - traefik.constraint-label=traefik-network
+        - traefik.http.routers.confluence.rule=Host(`confluence.dgital.pro`)
+        - traefik.http.routers.confluence.entrypoints=web-secured
+        - traefik.http.routers.confluence.tls=true
+        - traefik.http.routers.confluence.tls.certresolver=mytlschallenge
+        - traefik.http.services.confluence.loadbalancer.server.port=51174
 
   postgres:
     image: postgres:9.6
     restart: always
-    expose:
-       - 5432
     volumes:
       - ./pgdata/:/var/lib/postgresql/data
     environment:
@@ -35,7 +41,7 @@ services:
       - POSTGRES_DB=confluence
       - POSTGRES_PASSWORD=123456789
     networks:
-      - default
+      - traefik-network
     deploy:
       # this basically says that only deploy 1 per node in every manager node
       # and reserve 128MB of ram to it, also limit the memory to 256MB
