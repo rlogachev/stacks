@@ -23,8 +23,6 @@ services:
           - "node.role == manager"
       labels:
         - traefik.enable=true
-        - traefik.docker.network=traefik-network
-        - traefik.constraint-label=traefik-network
         - traefik.http.routers.confluence.rule=Host(`confluence.dgital.pro`)
         - traefik.http.routers.confluence.entrypoints=web-secured
         - traefik.http.routers.confluence.tls=true

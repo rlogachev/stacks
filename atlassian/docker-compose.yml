@@ -9,7 +9,7 @@ services:
     volumes:
       - ./confluence/:/var/atlassian/application-data/confluence
     environment:
-      - CATALINA_CONNECTOR_PROXYNAME=confluence.dgital.pro
+      - CATALINA_CONNECTOR_PROXYNAME=localhost
       - CATALINA_CONNECTOR_PROXYPORT=443
       - CATALINA_CONNECTOR_SCHEME=https
       - CATALINA_CONNECTOR_SECURE=true
